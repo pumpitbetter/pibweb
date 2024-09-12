@@ -13,17 +13,17 @@ export const meta: MetaFunction<
 	null,
 	{ 'routes/users+/$username_+/exercises': typeof exercisesLoader }
 > = ({ params, matches }) => {
-	const notesMatch = matches.find(
+	const exercisesMatch = matches.find(
 		(m) => m.id === 'routes/users+/$username_+/exercises',
 	)
-	const displayName = notesMatch?.data?.owner.name ?? params.username
-	const noteCount = notesMatch?.data?.owner.notes.length ?? 0
-	const notesText = noteCount === 1 ? 'exercise' : 'exercisess'
+	const displayName = exercisesMatch?.data?.owner.name ?? params.username
+	const exerciseCount = exercisesMatch?.data?.owner.exercises.length ?? 0
+	const exercisesText = exerciseCount === 1 ? 'exercise' : 'exercisess'
 	return [
 		{ title: `${displayName}'s Exercises | Pump It Better` },
 		{
 			name: 'description',
-			content: `Checkout ${displayName}'s ${noteCount} ${notesText} on Epic Notes`,
+			content: `Checkout ${displayName}'s ${exerciseCount} ${exercisesText} on Epic Notes`,
 		},
 	]
 }

@@ -23,47 +23,41 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getNoteImgSrc, useIsPending } from '#app/utils/misc.tsx'
+import { useIsPending } from '#app/utils/misc.tsx'
 import { requireUserWithPermission } from '#app/utils/permissions.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { userHasPermission, useOptionalUser } from '#app/utils/user.ts'
-import { type loader as notesLoader } from './_layout.tsx'
+import { type loader as exercisesLoader } from './_layout.tsx'
 
 export async function loader({ params }: LoaderFunctionArgs) {
-	const note = await prisma.note.findUnique({
-		where: { id: params.noteId },
+	const exercise = await prisma.exercise.findUnique({
+		where: { id: params.exerciseId },
 		select: {
 			id: true,
-			title: true,
-			content: true,
+			name: true,
+			description: true,
 			ownerId: true,
 			updatedAt: true,
-			images: {
-				select: {
-					id: true,
-					altText: true,
-				},
-			},
 		},
 	})
 
-	invariantResponse(note, 'Not found', { status: 404 })
+	invariantResponse(exercise, 'Not found', { status: 404 })
 
-	const date = new Date(note.updatedAt)
+	const date = new Date(exercise.updatedAt)
 	const timeAgo = formatDistanceToNow(date)
 
 	return json({
-		note,
+		exercise,
 		timeAgo,
 	})
 }
 
 const DeleteFormSchema = z.object({
-	intent: z.literal('delete-note'),
-	noteId: z.string(),
+	intent: z.literal('delete-exercise'),
+	exerciseId: z.string(),
 })
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
 	const userId = await requireUserId(request)
 	const formData = await request.formData()
 	const submission = parseWithZod(formData, {
@@ -76,58 +70,45 @@ export async function action({ request }: ActionFunctionArgs) {
 		)
 	}
 
-	const { noteId } = submission.value
+	const { exerciseId } = submission.value
 
-	const note = await prisma.note.findFirst({
+	const exercise = await prisma.exercise.findFirst({
 		select: { id: true, ownerId: true, owner: { select: { username: true } } },
-		where: { id: noteId },
+		where: { id: exerciseId },
 	})
-	invariantResponse(note, 'Not found', { status: 404 })
+	invariantResponse(exercise, 'Not found', { status: 404 })
 
-	const isOwner = note.ownerId === userId
+	const isOwner = exercise?.ownerId === userId
 	await requireUserWithPermission(
 		request,
-		isOwner ? `delete:note:own` : `delete:note:any`,
+		isOwner ? `delete:exercise:own` : `delete:exercise:any`,
 	)
 
-	await prisma.note.delete({ where: { id: note.id } })
+	await prisma.exercise.delete({ where: { id: exercise.id } })
 
-	return redirectWithToast(`/users/${note.owner.username}/notes`, {
+	return redirectWithToast(`/users/${params?.username}/exercises`, {
 		type: 'success',
 		title: 'Success',
-		description: 'Your note has been deleted.',
+		description: 'Your exercise has been deleted.',
 	})
 }
 
 export default function ExerciseRoute() {
 	const data = useLoaderData<typeof loader>()
 	const user = useOptionalUser()
-	const isOwner = user?.id === data.note.ownerId
+	const isOwner = user?.id && user?.id === data.exercise?.ownerId
 	const canDelete = userHasPermission(
 		user,
-		isOwner ? `delete:note:own` : `delete:note:any`,
+		isOwner ? `delete:exercise:own` : `delete:exercise:any`,
 	)
 	const displayBar = canDelete || isOwner
 
 	return (
 		<div className="absolute inset-0 flex flex-col px-10">
-			<h2 className="mb-2 pt-12 text-h2 lg:mb-6">{data.note.title}</h2>
+			<h2 className="mb-2 pt-12 text-h2 lg:mb-6">{data.exercise.name}</h2>
 			<div className={`${displayBar ? 'pb-24' : 'pb-12'} overflow-y-auto`}>
-				<ul className="flex flex-wrap gap-5 py-5">
-					{data.note.images.map((image) => (
-						<li key={image.id}>
-							<a href={getNoteImgSrc(image.id)}>
-								<img
-									src={getNoteImgSrc(image.id)}
-									alt={image.altText ?? ''}
-									className="h-32 w-32 rounded-lg object-cover"
-								/>
-							</a>
-						</li>
-					))}
-				</ul>
 				<p className="whitespace-break-spaces text-sm md:text-lg">
-					{data.note.content}
+					{data.exercise.description}
 				</p>
 			</div>
 			{displayBar ? (
@@ -138,7 +119,7 @@ export default function ExerciseRoute() {
 						</Icon>
 					</span>
 					<div className="grid flex-1 grid-cols-2 justify-end gap-2 min-[525px]:flex md:gap-4">
-						{canDelete ? <DeleteExercise id={data.note.id} /> : null}
+						{canDelete ? <DeleteExercise id={data.exercise.id} /> : null}
 						<Button
 							asChild
 							className="min-[525px]:max-md:aspect-square min-[525px]:max-md:px-0"
@@ -160,17 +141,17 @@ export function DeleteExercise({ id }: { id: string }) {
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
 	const [form] = useForm({
-		id: 'delete-note',
+		id: 'delete-exercise',
 		lastResult: actionData?.result,
 	})
 
 	return (
 		<Form method="POST" {...getFormProps(form)}>
-			<input type="hidden" name="noteId" value={id} />
+			<input type="hidden" name="exerciseId" value={id} />
 			<StatusButton
 				type="submit"
 				name="intent"
-				value="delete-note"
+				value="delete-exercise"
 				variant="destructive"
 				status={isPending ? 'pending' : (form.status ?? 'idle')}
 				disabled={isPending}
@@ -187,16 +168,16 @@ export function DeleteExercise({ id }: { id: string }) {
 
 export const meta: MetaFunction<
 	typeof loader,
-	{ 'routes/users+/$username_+/notes': typeof notesLoader }
+	{ 'routes/users+/$username_+/exercises': typeof exercisesLoader }
 > = ({ data, params, matches }) => {
-	const notesMatch = matches.find(
-		(m) => m.id === 'routes/users+/$username_+/notes',
+	const exercisesMatch = matches.find(
+		(m) => m.id === 'routes/users+/$username_+/exercises',
 	)
-	const displayName = notesMatch?.data?.owner.name ?? params.username
-	const noteTitle = data?.note.title ?? 'Note'
+	const displayName = exercisesMatch?.data?.owner.name ?? params.username
+	const noteTitle = data?.exercise.name ?? 'Exercise'
 	const noteContentsSummary =
-		data && data.note.content.length > 100
-			? data?.note.content.slice(0, 97) + '...'
+		data && data.exercise.description.length > 100
+			? data?.exercise.description.slice(0, 97) + '...'
 			: 'No content'
 	return [
 		{ title: `${noteTitle} | ${displayName}'s Notes | Epic Notes` },

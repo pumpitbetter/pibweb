@@ -10,31 +10,25 @@ export { action } from './__exercise-editor.server.tsx'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
 	const userId = await requireUserId(request)
-	const note = await prisma.note.findFirst({
+	const exercise = await prisma.exercise.findFirst({
 		select: {
 			id: true,
-			title: true,
-			content: true,
-			images: {
-				select: {
-					id: true,
-					altText: true,
-				},
-			},
+			name: true,
+			description: true,
 		},
 		where: {
-			id: params.noteId,
-			ownerId: userId,
+			id: params.exerciseId,
+			OR: [{ ownerId: userId }, { ownerId: null }],
 		},
 	})
-	invariantResponse(note, 'Not found', { status: 404 })
-	return json({ note: note })
+	invariantResponse(exercise, 'Not found', { status: 404 })
+	return json({ exercise })
 }
 
 export default function ExerciseEdit() {
 	const data = useLoaderData<typeof loader>()
 
-	return <ExerciseEditor note={data.note} />
+	return <ExerciseEditor exercise={data.exercise} />
 }
 
 export function ErrorBoundary() {
@@ -42,7 +36,7 @@ export function ErrorBoundary() {
 		<GeneralErrorBoundary
 			statusHandlers={{
 				404: ({ params }) => (
-					<p>No note with the id "{params.noteId}" exists</p>
+					<p>No exercise with the id "{params.exerciseId}" exists</p>
 				),
 			}}
 		/>

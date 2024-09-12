@@ -6,6 +6,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
+import { Prisma } from '@prisma/client'
 
 export async function loader({ params }: LoaderFunctionArgs) {
 	const owner = await prisma.user.findFirst({
@@ -14,14 +15,23 @@ export async function loader({ params }: LoaderFunctionArgs) {
 			name: true,
 			username: true,
 			image: { select: { id: true } },
-			notes: { select: { id: true, title: true } },
 		},
 		where: { username: params.username },
 	})
 
+	const exercises = await prisma.exercise.findMany({
+		select: {
+			id: true,
+			name: true,
+			description: true,
+			type: true,
+		},
+		where: { OR: [{ ownerId: null }, { ownerId: owner?.id }] },
+	})
+
 	invariantResponse(owner, 'Owner not found', { status: 404 })
 
-	return json({ owner })
+	return json({ owner: {...owner, exercises} })
 }
 
 export default function ExercisesRoute() {
@@ -46,7 +56,7 @@ export default function ExercisesRoute() {
 								className="h-16 w-16 rounded-full object-cover lg:h-24 lg:w-24"
 							/>
 							<h1 className="text-center text-base font-bold md:text-lg lg:text-left lg:text-2xl">
-								{ownerDisplayName}'s Notes
+								{ownerDisplayName}'s Exercises
 							</h1>
 						</Link>
 						<ul className="overflow-y-auto overflow-x-hidden pb-12">
@@ -58,21 +68,21 @@ export default function ExercisesRoute() {
 											cn(navLinkDefaultClassName, isActive && 'bg-accent')
 										}
 									>
-										<Icon name="plus">New Note</Icon>
+										<Icon name="plus">New Exercise</Icon>
 									</NavLink>
 								</li>
 							) : null}
-							{data.owner.notes.map((note) => (
-								<li key={note.id} className="p-1 pr-0">
+							{data.owner.exercises.map((exercise) => (
+								<li key={exercise.id} className="p-1 pr-0">
 									<NavLink
-										to={note.id}
+										to={exercise.id}
 										preventScrollReset
 										prefetch="intent"
 										className={({ isActive }) =>
 											cn(navLinkDefaultClassName, isActive && 'bg-accent')
 										}
 									>
-										{note.title}
+										{exercise.name}
 									</NavLink>
 								</li>
 							))}

@@ -10,78 +10,30 @@ import {
 import { z } from 'zod'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	MAX_UPLOAD_SIZE,
-	NoteEditorSchema,
-	type ImageFieldset,
-} from './__exercise-editor'
+import { ExerciseEditorSchema } from './__exercise-editor'
 
-function imageHasFile(
-	image: ImageFieldset,
-): image is ImageFieldset & { file: NonNullable<ImageFieldset['file']> } {
-	return Boolean(image.file?.size && image.file?.size > 0)
-}
-
-function imageHasId(
-	image: ImageFieldset,
-): image is ImageFieldset & { id: NonNullable<ImageFieldset['id']> } {
-	return image.id != null
-}
-
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
 	const userId = await requireUserId(request)
 
-	const formData = await parseMultipartFormData(
-		request,
-		createMemoryUploadHandler({ maxPartSize: MAX_UPLOAD_SIZE }),
-	)
+	const formData = await request.formData()
 
 	const submission = await parseWithZod(formData, {
-		schema: NoteEditorSchema.superRefine(async (data, ctx) => {
+		schema: ExerciseEditorSchema.superRefine(async (data, ctx) => {
 			if (!data.id) return
 
-			const note = await prisma.note.findUnique({
+			const exercise = await prisma.exercise.findUnique({
 				select: { id: true },
-				where: { id: data.id, ownerId: userId },
+				where: { id: data.id, OR: [{ ownerId: userId }, { ownerId: null }] },
 			})
-			if (!note) {
+			if (!exercise) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: 'Note not found',
+					message: 'Exercise not found',
 				})
 			}
-		}).transform(async ({ images = [], ...data }) => {
+		}).transform(async ({ ...data }) => {
 			return {
 				...data,
-				imageUpdates: await Promise.all(
-					images.filter(imageHasId).map(async (i) => {
-						if (imageHasFile(i)) {
-							return {
-								id: i.id,
-								altText: i.altText,
-								contentType: i.file.type,
-								blob: Buffer.from(await i.file.arrayBuffer()),
-							}
-						} else {
-							return {
-								id: i.id,
-								altText: i.altText,
-							}
-						}
-					}),
-				),
-				newImages: await Promise.all(
-					images
-						.filter(imageHasFile)
-						.filter((i) => !i.id)
-						.map(async (image) => {
-							return {
-								altText: image.altText,
-								contentType: image.file.type,
-								blob: Buffer.from(await image.file.arrayBuffer()),
-							}
-						}),
-				),
 			}
 		}),
 		async: true,
@@ -94,38 +46,24 @@ export async function action({ request }: ActionFunctionArgs) {
 		)
 	}
 
-	const {
-		id: noteId,
-		title,
-		content,
-		imageUpdates = [],
-		newImages = [],
-	} = submission.value
+	const { id: exerciseId, name, description } = submission.value
 
-	const updatedNote = await prisma.note.upsert({
+	const updatedExercise = await prisma.exercise.upsert({
 		select: { id: true, owner: { select: { username: true } } },
-		where: { id: noteId ?? '__new_note__' },
+		where: { id: exerciseId ?? '__new_exercise__' },
 		create: {
-			ownerId: userId,
-			title,
-			content,
-			images: { create: newImages },
+			ownerId: userId, // TODO: allow admin to create system-wide exercise 'null'
+			name,
+			description,
+			typeId: 'strength',
 		},
 		update: {
-			title,
-			content,
-			images: {
-				deleteMany: { id: { notIn: imageUpdates.map((i) => i.id) } },
-				updateMany: imageUpdates.map((updates) => ({
-					where: { id: updates.id },
-					data: { ...updates, id: updates.blob ? cuid() : updates.id },
-				})),
-				create: newImages,
-			},
+			name,
+			description,
 		},
 	})
 
 	return redirect(
-		`/users/${updatedNote.owner.username}/notes/${updatedNote.id}`,
+		`/users/${params?.username}/exercises/${updatedExercise.id}`,
 	)
 }
