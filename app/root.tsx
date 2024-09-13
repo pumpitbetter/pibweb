@@ -241,14 +241,58 @@ function App() {
 	)
 }
 
+function PibApp() {
+	const data = useLoaderData<typeof loader>();
+	const theme = useTheme();
+	const nonce = useNonce();
+	const user = useOptionalUser();
+	const allowIndexing = data.ENV.ALLOW_INDEXING !== 'false';
+
+	return (
+		<Document
+			nonce={nonce}
+			theme={theme}
+			allowIndexing={allowIndexing}
+			env={data.ENV}
+		>
+			<div className="flex h-screen flex-col justify-between">
+				
+
+			<header className="container py-6">
+					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
+						<Logo />
+						<div className="flex items-center gap-10">
+							{user ? (
+								<UserDropdown />
+							) : (
+								<Button asChild variant="default" size="lg">
+									<Link to="/login">Log In</Link>
+								</Button>
+							)}
+						</div>
+
+					</nav>
+				</header>
+
+				<div className="flex-1">
+					<Outlet />
+				</div>
+
+			</div>
+		</Document>
+	);
+
+
+}
+
 function Logo() {
 	return (
 		<Link to="/" className="group grid leading-snug">
 			<span className="font-light transition group-hover:-translate-x-1">
-				epic
+				pump it
 			</span>
 			<span className="font-bold transition group-hover:translate-x-1">
-				notes
+				better
 			</span>
 		</Link>
 	)
@@ -258,7 +302,7 @@ function AppWithProviders() {
 	const data = useLoaderData<typeof loader>()
 	return (
 		<HoneypotProvider {...data.honeyProps}>
-			<App />
+			<PibApp />
 		</HoneypotProvider>
 	)
 }
@@ -296,6 +340,13 @@ function UserDropdown() {
 						<Link prefetch="intent" to={`/users/${user.username}`}>
 							<Icon className="text-body-md" name="avatar">
 								Profile
+							</Icon>
+						</Link>
+					</DropdownMenuItem>
+					<DropdownMenuItem asChild>
+						<Link prefetch="intent" to={`/users/${user.username}/exercises`}>
+							<Icon className="text-body-md" name="pencil-2">
+								Exercises
 							</Icon>
 						</Link>
 					</DropdownMenuItem>

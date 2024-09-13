@@ -1,5 +1,5 @@
 import { type MetaFunction } from '@remix-run/react'
-import { type loader as notesLoader } from './notes.tsx'
+import { type loader as notesLoader } from './_layout.tsx'
 
 export default function NotesIndexRoute() {
 	return (
