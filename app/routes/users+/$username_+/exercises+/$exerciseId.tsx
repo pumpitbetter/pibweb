@@ -36,6 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 			id: true,
 			name: true,
 			description: true,
+			type: true,
 			ownerId: true,
 			updatedAt: true,
 		},
@@ -107,6 +108,9 @@ export default function ExerciseRoute() {
 		<div className="absolute inset-0 flex flex-col px-10">
 			<h2 className="mb-2 pt-12 text-h2 lg:mb-6">{data.exercise.name}</h2>
 			<div className={`${displayBar ? 'pb-24' : 'pb-12'} overflow-y-auto`}>
+				<p className="whitespace-break-spaces text-sm md:text-lg pb-8">
+					<strong>Type: </strong>{data.exercise.type.name}
+				</p>
 				<p className="whitespace-break-spaces text-sm md:text-lg">
 					{data.exercise.description}
 				</p>
