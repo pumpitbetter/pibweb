@@ -242,11 +242,12 @@ function App() {
 }
 
 function PibApp() {
-	const data = useLoaderData<typeof loader>();
-	const theme = useTheme();
-	const nonce = useNonce();
-	const user = useOptionalUser();
-	const allowIndexing = data.ENV.ALLOW_INDEXING !== 'false';
+	const data = useLoaderData<typeof loader>()
+	const theme = useTheme()
+	const nonce = useNonce()
+	const user = useOptionalUser()
+	const allowIndexing = data.ENV.ALLOW_INDEXING !== 'false'
+	useToast(data.toast)
 
 	return (
 		<Document
@@ -256,9 +257,7 @@ function PibApp() {
 			env={data.ENV}
 		>
 			<div className="flex h-screen flex-col justify-between">
-				
-
-			<header className="container py-6">
+				<header className="container py-6">
 					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
 						<Logo />
 						<div className="flex items-center gap-10">
@@ -270,19 +269,18 @@ function PibApp() {
 								</Button>
 							)}
 						</div>
-
 					</nav>
 				</header>
 
 				<div className="flex-1">
 					<Outlet />
 				</div>
-
 			</div>
+
+			<EpicToaster closeButton position="top-center" theme={theme} />
+			<EpicProgress />
 		</Document>
-	);
-
-
+	)
 }
 
 function Logo() {
