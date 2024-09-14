@@ -1,12 +1,17 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { json, type LoaderFunctionArgs } from '@remix-run/node'
-import { Link, NavLink, Outlet, useLoaderData } from '@remix-run/react'
+import {
+	Link,
+	NavLink,
+	Outlet,
+	useLoaderData,
+	useParams,
+} from '@remix-run/react'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
-import { Prisma } from '@prisma/client'
 
 export async function loader({ params }: LoaderFunctionArgs) {
 	const owner = await prisma.user.findFirst({
@@ -31,12 +36,18 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
 	invariantResponse(owner, 'Owner not found', { status: 404 })
 
-	return json({ owner: {...owner, exercises} })
+	return json({ owner: { ...owner, exercises } })
 }
 
+/*
+if url matches exercise detail (if it includes exercise id)
+show master view only on screens bigger then mobile
+*/
 export default function ExercisesRoute() {
 	const data = useLoaderData<typeof loader>()
 	const user = useOptionalUser()
+	const params = useParams()
+	const hasDetails = Boolean(params?.exerciseId)
 	const isOwner = user?.id === data.owner.id
 	const ownerDisplayName = data.owner.name ?? data.owner.username
 	const navLinkDefaultClassName =
@@ -44,7 +55,13 @@ export default function ExercisesRoute() {
 	return (
 		<main className="container flex h-full min-h-[400px] px-0 pb-12 md:px-8">
 			<div className="grid w-full grid-cols-4 bg-muted pl-2 md:container md:rounded-3xl md:pr-0">
-				<div className="relative col-span-1">
+				{/* master view: hidden on mobile if url includes exerciseId */}
+				<div
+					className={cn(
+						'relative col-span-4 md:col-span-1',
+						hasDetails && 'hidden md:block',
+					)}
+				>
 					<div className="absolute inset-0 flex flex-col">
 						<Link
 							to={`/users/${data.owner.username}`}
@@ -89,7 +106,14 @@ export default function ExercisesRoute() {
 						</ul>
 					</div>
 				</div>
-				<div className="relative col-span-3 bg-accent md:rounded-r-3xl">
+
+				{/* outlet for detail view: hidden on mobile if url does NOT include exerciseId */}
+				<div
+					className={cn(
+						'relative col-span-4 bg-accent md:col-span-3 md:rounded-r-3xl',
+						!hasDetails && 'hidden md:block',
+					)}
+				>
 					<Outlet />
 				</div>
 			</div>
