@@ -106,10 +106,18 @@ export default function ExerciseRoute() {
 
 	return (
 		<div className="absolute inset-0 flex flex-col px-10">
-			<h2 className="mb-2 pt-12 text-h2 lg:mb-6">{data.exercise.name}</h2>
+			<div className="py-7">
+				<Link prefetch="intent" to={`/users/${user?.username}/exercises`} className='md:hidden'>
+					<Icon className="text-body-md" name="arrow-left">
+						All exercises
+					</Icon>
+				</Link>
+			</div>
+			<h2 className="mb-2 text-h2 lg:mb-6">{data.exercise.name}</h2>
 			<div className={`${displayBar ? 'pb-24' : 'pb-12'} overflow-y-auto`}>
-				<p className="whitespace-break-spaces text-sm md:text-lg pb-8">
-					<strong>Type: </strong>{data.exercise.type.name}
+				<p className="whitespace-break-spaces pb-8 text-sm md:text-lg">
+					<strong>Type: </strong>
+					{data.exercise.type.name}
 				</p>
 				<p className="whitespace-break-spaces text-sm md:text-lg">
 					{data.exercise.description}

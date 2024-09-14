@@ -8,15 +8,17 @@ import {
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type Exercise } from '@prisma/client'
 import { type SerializeFrom } from '@remix-run/node'
-import { Form, useActionData } from '@remix-run/react'
+import { Form, Link, useActionData, useParams } from '@remix-run/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
 import { ErrorList, Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { Icon } from '#app/components/ui/icon.js'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { type action } from './__exercise-editor.server'
+
 
 const nameMinLength = 1
 const nameMaxLength = 100
@@ -32,12 +34,11 @@ export const ExerciseEditorSchema = z.object({
 export function ExerciseEditor({
 	exercise,
 }: {
-	exercise?: SerializeFrom<
-		Pick<Exercise, 'id' | 'name' | 'description'>
-	>
+	exercise?: SerializeFrom<Pick<Exercise, 'id' | 'name' | 'description'>>
 }) {
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
+	const params = useParams()
 
 	const [form, fields] = useForm({
 		id: 'exercise-editor',
@@ -67,7 +68,18 @@ export function ExerciseEditor({
 					rather than the first button in the form (which is delete/add image).
 				*/}
 					<button type="submit" className="hidden" />
-					{exercise ? <input type="hidden" name="id" value={exercise.id} /> : null}
+					<Link
+						prefetch="intent"
+						to={`/users/${params?.username}/exercises/${params?.exerciseId}`}
+						className="md:hidden"
+					>
+						<Icon className="text-body-md" name="arrow-left">
+							Cancel edit
+						</Icon>
+					</Link>
+					{exercise ? (
+						<input type="hidden" name="id" value={exercise.id} />
+					) : null}
 					<div className="flex flex-col gap-1">
 						<Field
 							labelProps={{ children: 'Name' }}
@@ -97,7 +109,7 @@ export function ExerciseEditor({
 						disabled={isPending}
 						status={isPending ? 'pending' : 'idle'}
 					>
-						Submit
+						Save
 					</StatusButton>
 				</div>
 			</FormProvider>
