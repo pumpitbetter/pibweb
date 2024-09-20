@@ -54,12 +54,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		create: {
 			ownerId: userId, // TODO: allow admin to create system-wide exercise 'null'
 			name,
-			description,
+			description: description || null,
 			typeId: 'strength',
 		},
 		update: {
 			name,
-			description,
+			description: description || null,
 		},
 	})
 
