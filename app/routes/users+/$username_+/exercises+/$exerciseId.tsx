@@ -11,6 +11,7 @@ import {
 	Link,
 	useActionData,
 	useLoaderData,
+	useParams,
 	type MetaFunction,
 } from '@remix-run/react'
 import { formatDistanceToNow } from 'date-fns'
@@ -96,6 +97,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 export default function ExerciseRoute() {
 	const data = useLoaderData<typeof loader>()
+	const params = useParams();
 	const user = useOptionalUser()
 	const isOwner = user?.id && user?.id === data.exercise?.ownerId
 	const canDelete = userHasPermission(
@@ -107,7 +109,7 @@ export default function ExerciseRoute() {
 	return (
 		<div className="absolute inset-0 flex flex-col px-10">
 			<div className="py-7">
-				<Link prefetch="intent" to={`/users/${user?.username}/exercises`} className='md:hidden'>
+				<Link prefetch="intent" to={`/users/${params?.username}/exercises`} className='md:hidden'>
 					<Icon className="text-body-md" name="arrow-left">
 						All exercises
 					</Icon>
