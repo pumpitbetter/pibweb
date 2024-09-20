@@ -28,7 +28,7 @@ const descriptionMaxLength = 10000
 export const ExerciseEditorSchema = z.object({
 	id: z.string().optional(),
 	name: z.string().min(nameMinLength).max(nameMaxLength),
-	description: z.string().min(descriptionMinLength).max(descriptionMaxLength),
+	description: z.string().min(descriptionMinLength).max(descriptionMaxLength).optional(),
 })
 
 export function ExerciseEditor({
