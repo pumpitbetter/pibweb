@@ -348,6 +348,13 @@ function UserDropdown() {
 							</Icon>
 						</Link>
 					</DropdownMenuItem>
+					<DropdownMenuItem asChild>
+						<Link prefetch="intent" to={`/users/${user.username}/routines`}>
+							<Icon className="text-body-md" name="pencil-2">
+								Routines
+							</Icon>
+						</Link>
+					</DropdownMenuItem>
 					<DropdownMenuItem
 						asChild
 						// this prevents the menu from closing before the form submission is completed
