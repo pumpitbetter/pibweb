@@ -131,15 +131,13 @@ export default function RoutineRoute() {
 				</p>
 				{data.routine.videoUrl && (
 					<iframe
-						width="560"
-						height="315"
 						src={data.routine.videoUrl}
 						title="YouTube video player"
-						frameborder="0"
+						frameBorder="0"
 						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-						referrerpolicy="strict-origin-when-cross-origin"
-						allowfullscreen
-						className="mt-8"
+						referrerPolicy="strict-origin-when-cross-origin"
+						allowFullScreen
+						className="mt-8 aspect-video w-full"
 					></iframe>
 				)}
 			</div>
