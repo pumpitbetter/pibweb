@@ -46,7 +46,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		)
 	}
 
-	const { id: routineId, name, description } = submission.value
+	const { id: routineId, name, description, videoUrl } = submission.value
 
 	const updatedRoutine = await prisma.routine.upsert({
 		select: { id: true, owner: { select: { username: true } } },
@@ -55,11 +55,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
 			ownerId: userId, // TODO: allow admin to create system-wide routine 'null'
 			name,
 			description: description || null,
+			videoUrl: videoUrl || null,
 			typeId: 'strength',
 		},
 		update: {
 			name,
 			description: description || null,
+			videoUrl: videoUrl || null,
 		},
 	})
 

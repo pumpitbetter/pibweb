@@ -15,6 +15,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 			id: true,
 			name: true,
 			description: true,
+			videoUrl: true,
 			type: true,
 		},
 		where: {

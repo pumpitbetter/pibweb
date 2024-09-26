@@ -37,6 +37,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 			id: true,
 			name: true,
 			description: true,
+			videoUrl: true,
 			type: true,
 			ownerId: true,
 			updatedAt: true,
@@ -128,6 +129,19 @@ export default function RoutineRoute() {
 				<p className="whitespace-break-spaces text-sm md:text-lg">
 					{data.routine.description}
 				</p>
+				{data.routine.videoUrl && (
+					<iframe
+						width="560"
+						height="315"
+						src={data.routine.videoUrl}
+						title="YouTube video player"
+						frameborder="0"
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+						referrerpolicy="strict-origin-when-cross-origin"
+						allowfullscreen
+						className="mt-8"
+					></iframe>
+				)}
 			</div>
 			{displayBar ? (
 				<div className={floatingToolbarClassName}>
