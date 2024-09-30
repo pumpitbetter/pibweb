@@ -19,7 +19,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { type action } from './__routine-editor.server'
 
-
 const nameMinLength = 1
 const nameMaxLength = 100
 const descriptionMinLength = 1
@@ -28,13 +27,20 @@ const descriptionMaxLength = 10000
 export const RoutineEditorSchema = z.object({
 	id: z.string().optional(),
 	name: z.string().min(nameMinLength).max(nameMaxLength),
-	description: z.string().min(descriptionMinLength).max(descriptionMaxLength).optional(),
+	description: z
+		.string()
+		.min(descriptionMinLength)
+		.max(descriptionMaxLength)
+		.optional(),
+	videoUrl: z.string().url().optional(),
 })
 
 export function RoutineEditor({
 	routine,
 }: {
-	routine?: SerializeFrom<Pick<Routine, 'id' | 'name' | 'description'>>
+	routine?: SerializeFrom<
+		Pick<Routine, 'id' | 'name' | 'description' | 'videoUrl'>
+	>
 }) {
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
@@ -96,6 +102,25 @@ export function RoutineEditor({
 							}}
 							errors={fields.description.errors}
 						/>
+						<Field
+							labelProps={{ children: 'Video URL' }}
+							inputProps={{
+								autoFocus: false,
+								...getInputProps(fields.videoUrl, { type: 'url' }),
+							}}
+							errors={fields.videoUrl.errors}
+						/>
+						{fields.videoUrl.value && (
+							<iframe
+								src={fields.videoUrl.value}
+								title="YouTube video player"
+								frameBorder="0"
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								referrerPolicy="strict-origin-when-cross-origin"
+								allowFullScreen
+								className="aspect-video w-full"
+							></iframe>
+						)}
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />
 				</Form>
