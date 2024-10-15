@@ -22,7 +22,7 @@ async function seed() {
 
 	console.time('🔑 Created permissions...')
 	const entities = ['user', 'note', 'exercise', 'routine', 'workout']
-	const actions = ['create', 'read', 'update', 'delete', 'workout']
+	const actions = ['create', 'read', 'update', 'delete']
 	const accesses = ['own', 'any'] as const
 
 	let permissionsToCreate = []
