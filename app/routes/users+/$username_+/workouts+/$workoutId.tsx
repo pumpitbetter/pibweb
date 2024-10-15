@@ -1,5 +1,4 @@
 import { getFormProps, useForm } from '@conform-to/react'
-import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import {
 	json,
@@ -22,12 +21,10 @@ import { ErrorList } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
-import { requireUserWithPermission } from '#app/utils/permissions.server.ts'
-import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { userHasPermission, useOptionalUser } from '#app/utils/user.ts'
+import { actionDelete, actionStop } from './__workout-server.tsx'
 import { type loader as workoutsLoader } from './_layout.tsx'
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -62,53 +59,18 @@ export async function loader({ params }: LoaderFunctionArgs) {
 	})
 }
 
-const DeleteFormSchema = z.object({
-	intent: z.literal('delete-workout'),
-	workoutId: z.string(),
-})
+export async function action(args: ActionFunctionArgs) {
+	const { request, params } = args
 
-export async function action({ request, params }: ActionFunctionArgs) {
-	const userId = await requireUserId(request)
 	const formData = await request.formData()
-	const submission = parseWithZod(formData, {
-		schema: DeleteFormSchema,
-	})
-	if (submission.status !== 'success') {
-		return json(
-			{ result: submission.reply() },
-			{ status: submission.status === 'error' ? 400 : 200 },
-		)
+	const intent = formData.get('intent')
+
+	switch (intent) {
+		case 'delete-workout':
+			return actionDelete({ request, params, formData })
+		case 'stop-workout':
+			return actionStop({ request, params, formData })
 	}
-
-	const { workoutId } = submission.value
-
-	const workout = await prisma.workout.findFirst({
-		select: {
-			id: true,
-			ownerId: true,
-			deleted: false,
-			owner: { select: { username: true } },
-		},
-		where: { id: workoutId },
-	})
-	invariantResponse(workout, 'Not found', { status: 404 })
-
-	const isOwner = workout?.ownerId === userId
-	await requireUserWithPermission(
-		request,
-		isOwner ? `delete:workout:own` : `delete:workout:any`,
-	)
-
-	await prisma.workout.update({
-		where: { id: workout.id },
-		data: { deleted: true },
-	})
-
-	return redirectWithToast(`/users/${params?.username}/workouts`, {
-		type: 'success',
-		title: 'Success',
-		description: 'Your workout has been deleted.',
-	})
 }
 
 export default function WorkoutRoute() {
@@ -116,6 +78,7 @@ export default function WorkoutRoute() {
 	const params = useParams()
 	const user = useOptionalUser()
 	const isOwner = user?.id && user?.id === data.workout?.ownerId
+	const isActive = data.workout.stoppedAt !== null
 	const canDelete = userHasPermission(
 		user,
 		isOwner ? `delete:workout:own` : `delete:workout:any`,
@@ -164,17 +127,22 @@ export default function WorkoutRoute() {
 						</Icon>
 					</span>
 					<div className="grid flex-1 grid-cols-2 justify-end gap-2 min-[525px]:flex md:gap-4">
-						{canDelete ? <DeleteWorkout id={data.workout.id} /> : null}
-						<Button
-							asChild
-							className="min-[525px]:max-md:aspect-square min-[525px]:max-md:px-0"
-						>
-							<Link to="edit">
-								<Icon name="pencil-1" className="scale-125 max-md:scale-150">
-									<span className="max-md:hidden">Edit</span>
-								</Icon>
-							</Link>
-						</Button>
+						{isActive && canDelete ? (
+							<DeleteWorkout id={data.workout.id} />
+						) : null}
+						{isActive && (
+							<Button
+								asChild
+								className="min-[525px]:max-md:aspect-square min-[525px]:max-md:px-0"
+							>
+								<Link to="edit">
+									<Icon name="pencil-1" className="scale-125 max-md:scale-150">
+										<span className="max-md:hidden">Edit</span>
+									</Icon>
+								</Link>
+							</Button>
+						)}
+						{!isActive && <StopWorkout id={data.workout.id} />}
 					</div>
 				</div>
 			) : null}
@@ -211,6 +179,36 @@ export function DeleteWorkout({ id }: { id: string }) {
 	)
 }
 
+export function StopWorkout({ id }: { id: string }) {
+	const actionData = useActionData<typeof action>()
+	const isPending = useIsPending()
+	const [form] = useForm({
+		id: 'stop-workout',
+		lastResult: actionData?.result,
+	})
+
+	return (
+		<Form method="POST" {...getFormProps(form)}>
+			<input type="hidden" name="workoutId" value={id} />
+			<StatusButton
+				type="submit"
+				name="intent"
+				value="stop-workout"
+				variant="destructive"
+				status={isPending ? 'pending' : (form.status ?? 'idle')}
+				disabled={isPending}
+				className="w-full max-md:aspect-square max-md:px-0"
+			>
+				x
+				<Icon name="pencil-1" className="scale-125 max-md:scale-150">
+					<span className="max-md:hidden">Stop</span>
+				</Icon>
+			</StatusButton>
+			<ErrorList errors={form.errors} id={form.errorId} />
+		</Form>
+	)
+}
+
 export const meta: MetaFunction<
 	typeof loader,
 	{ 'routes/users+/$username_+/workout': typeof workoutsLoader }
@@ -221,7 +219,8 @@ export const meta: MetaFunction<
 	const displayName = workoutsMatch?.data?.owner.name ?? params.username
 	const workoutName = data?.workout?.routine.name ?? 'Workout'
 	const workoutDescriptionSummary =
-		data?.workout?.routine?.description && data.workout?.routine?.description?.length > 100
+		data?.workout?.routine?.description &&
+		data.workout?.routine?.description?.length > 100
 			? data?.workout?.routine.description?.slice(0, 97) + '...'
 			: 'No content'
 	return [
