@@ -6,11 +6,12 @@ import {
 	useForm,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
-import { type Routine } from '@prisma/client'
+import { type Routine, type Exercise } from '@prisma/client'
 import { type SerializeFrom } from '@remix-run/node'
 import { Form, Link, useActionData, useParams } from '@remix-run/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
+import { ExercisePickerDialog } from '#app/components/exercise-picker-dialog.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
 import { ErrorList, Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -37,10 +38,12 @@ export const RoutineEditorSchema = z.object({
 
 export function RoutineEditor({
 	routine,
+	exercises,
 }: {
 	routine?: SerializeFrom<
 		Pick<Routine, 'id' | 'name' | 'description' | 'videoUrl'>
 	>
+	exercises?: SerializeFrom<Pick<Exercise, 'id' | 'name'>[]>
 }) {
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
@@ -123,6 +126,10 @@ export function RoutineEditor({
 						)}
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />
+					<ExercisePickerDialog
+						routineId={params?.routineId}
+						exercises={exercises}
+					/>
 				</Form>
 				<div className={floatingToolbarClassName}>
 					<Button variant="destructive" {...form.reset.getButtonProps()}>

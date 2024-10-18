@@ -53,6 +53,7 @@ model Exercise {
   ownerId String?
 
   favoriteExercises FavoriteExercise[]
+  circuitExercises  CircuitExercise[]
 
   // non-unique foreign key
   @@index([ownerId])
@@ -92,6 +93,7 @@ model Routine {
 
   favoriteRoutines FavoriteRoutine[]
   workouts         Workout[]
+  circuits         Circuit[] // one or more ordered lists of exercises and rests each potentially with changing loads
 
   // non-unique foreign key
   @@index([ownerId])
@@ -106,6 +108,28 @@ model FavoriteRoutine {
   routineId String
 
   @@id([userId, routineId])
+}
+
+model CircuitExercise {
+  id         String   @id @default(cuid())
+  circuit    Circuit  @relation(fields: [circuitId], references: [id])
+  circuitId  String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  exerciseId String
+  sequence   Int
+
+  @@index([circuitId])
+}
+
+model Circuit {
+  id        String  @id @default(cuid())
+  routine   Routine @relation(fields: [routineId], references: [id])
+  routineId String
+  sequence  Int
+
+  exercises CircuitExercise[]
+
+  @@index([routineId])
 }
 
 model Workout {
@@ -124,7 +148,7 @@ model Workout {
   // non-unique foreign key
   @@index([ownerId])
   // This helps our order by in the user search a LOT
-  @@index([ownerId, createdAt, deleted]) 
+  @@index([ownerId, createdAt, deleted])
 }
 
 model Note {
