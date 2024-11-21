@@ -1,5 +1,4 @@
 import { getFormProps, useForm } from '@conform-to/react'
-import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import {
 	json,
@@ -15,21 +14,17 @@ import {
 	type MetaFunction,
 } from '@remix-run/react'
 import { formatDistanceToNow } from 'date-fns'
-import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
 import { ErrorList } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
-import { requireUserWithPermission } from '#app/utils/permissions.server.ts'
-import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { userHasPermission, useOptionalUser } from '#app/utils/user.ts'
-import { type loader as routinesLoader } from './_layout.tsx'
 import { actionDelete, actionStart } from './__routineId.server.tsx'
+import { type loader as routinesLoader } from './_layout.tsx'
 
 export async function loader({ params }: LoaderFunctionArgs) {
 	const routine = await prisma.routine.findUnique({
@@ -42,6 +37,24 @@ export async function loader({ params }: LoaderFunctionArgs) {
 			type: true,
 			ownerId: true,
 			updatedAt: true,
+			circuits: {
+				select: {
+					id: true,
+					sequence: true,
+					exercises: {
+						select: {
+							id: true,
+							sequence: true,
+							exercise: {
+								select: {
+									id: true,
+									name: true,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	})
 
@@ -56,16 +69,17 @@ export async function loader({ params }: LoaderFunctionArgs) {
 	})
 }
 
-
 export async function action(args: ActionFunctionArgs) {
-	const {request, params} = args;
+	const { request, params } = args
 
 	const formData = await request.formData()
-	const intent = formData.get("intent");
- 
-	switch(intent){
-		case "delete-routine": return actionDelete({request, params, formData});
-		case "start-routine": return actionStart({request, params, formData});
+	const intent = formData.get('intent')
+
+	switch (intent) {
+		case 'delete-routine':
+			return actionDelete({ request, params, formData })
+		case 'start-routine':
+			return actionStart({ request, params, formData })
 	}
 }
 
@@ -78,7 +92,7 @@ export default function RoutineRoute() {
 		user,
 		isOwner ? `delete:routine:own` : `delete:routine:any`,
 	)
-	const canStart = isOwner;
+	const canStart = isOwner
 	const displayBar = canDelete || isOwner
 
 	return (
@@ -114,6 +128,14 @@ export default function RoutineRoute() {
 						className="mt-8 aspect-video w-full"
 					></iframe>
 				)}
+				<h5 className="w-f whitespace-break-spaces py-4 text-h5">Exercises</h5>
+				<ul>
+					{data.routine.circuits[0]?.exercises.map((e) => (
+						<li className="w-full p-2" key={e.exercise.id}>
+							{e.exercise.name}
+						</li>
+					))}
+				</ul>
 			</div>
 			{displayBar ? (
 				<div className={floatingToolbarClassName}>

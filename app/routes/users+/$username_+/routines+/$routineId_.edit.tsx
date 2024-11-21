@@ -17,6 +17,30 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 			description: true,
 			videoUrl: true,
 			type: true,
+			circuits: {
+				select: {
+					id: true,
+					sequence: true,
+					exercises: {
+						select: {
+							id: true,
+							sequence: true,
+							exercise: {
+								select: {
+									id: true,
+									name: true,
+								},
+							},
+						},
+						orderBy: {
+							sequence: 'asc',
+						},
+					},
+				},
+				orderBy: {
+					sequence: 'asc',
+				},
+			},
 		},
 		where: {
 			id: params.routineId,
@@ -24,13 +48,23 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 		},
 	})
 	invariantResponse(routine, 'Not found', { status: 404 })
-	return json({ routine })
+
+	const exercises = await prisma.exercise.findMany({
+		select: {
+			id: true,
+			name: true,
+			description: true,
+			type: true,
+		},
+		where: { OR: [{ ownerId: null }, { ownerId: userId }] },
+	})
+
+	return json({ routine, exercises })
 }
 
 export default function RoutineEdit() {
 	const data = useLoaderData<typeof loader>()
-
-	return <RoutineEditor routine={data.routine} />
+	return <RoutineEditor loaderData={data} />
 }
 
 export function ErrorBoundary() {
