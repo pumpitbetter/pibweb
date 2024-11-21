@@ -6,18 +6,18 @@ import {
 	useForm,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
-import { type Routine, type Exercise } from '@prisma/client'
 import { type SerializeFrom } from '@remix-run/node'
 import { Form, Link, useActionData, useParams } from '@remix-run/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
-import { ExercisePickerDialog } from '#app/components/exercise-picker-dialog.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
 import { ErrorList, Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.js'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { ExercisePickerDialog } from '#app/routes/users+/$username_+/routines+/exercise-picker-dialog.tsx'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { type loader } from './$routineId_.edit'
 import { type action } from './__routine-editor.server'
 
 const nameMinLength = 1
@@ -25,7 +25,14 @@ const nameMaxLength = 100
 const descriptionMinLength = 1
 const descriptionMaxLength = 10000
 
+export const RoutineEditorAddExercisesSchema = z.object({
+	intent: z.string(),
+	routineId: z.string(),
+	exercises: z.string(),
+})
+
 export const RoutineEditorSchema = z.object({
+	intent: z.string(),
 	id: z.string().optional(),
 	name: z.string().min(nameMinLength).max(nameMaxLength),
 	description: z
@@ -37,17 +44,14 @@ export const RoutineEditorSchema = z.object({
 })
 
 export function RoutineEditor({
-	routine,
-	exercises,
+	loaderData,
 }: {
-	routine?: SerializeFrom<
-		Pick<Routine, 'id' | 'name' | 'description' | 'videoUrl'>
-	>
-	exercises?: SerializeFrom<Pick<Exercise, 'id' | 'name'>[]>
+	loaderData: SerializeFrom<typeof loader>
 }) {
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
 	const params = useParams()
+	const { routine, exercises } = loaderData
 
 	const [form, fields] = useForm({
 		id: 'routine-editor',
@@ -57,7 +61,10 @@ export function RoutineEditor({
 			return parseWithZod(formData, { schema: RoutineEditorSchema })
 		},
 		defaultValue: {
-			...routine,
+			id: routine?.id,
+			name: routine?.name,
+			description: routine?.description,
+			videoUrl: routine?.videoUrl,
 		},
 		shouldRevalidate: 'onBlur',
 	})
@@ -75,7 +82,7 @@ export function RoutineEditor({
 					This hidden submit button is here to ensure that when the user hits
 					"enter" on an input field, the primary form function is submitted
 					rather than the first button in the form (which is delete/add image).
-				*/}
+				    */}
 					<button type="submit" className="hidden" />
 					<Link
 						prefetch="intent"
@@ -118,25 +125,38 @@ export function RoutineEditor({
 								src={fields.videoUrl.value}
 								title="YouTube video player"
 								frameBorder="0"
-								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; zpicture-in-picture; web-share"
 								referrerPolicy="strict-origin-when-cross-origin"
 								allowFullScreen
 								className="aspect-video w-full"
 							></iframe>
 						)}
+						<h5 className="w-f whitespace-break-spaces py-4 text-h5">
+							Exercises
+						</h5>
+						<ul>
+							{routine?.circuits[0]?.exercises.map((e) => (
+								<li className="w-full p-2" key={e.exercise.id}>
+									{e.exercise.name}
+								</li>
+							))}
+						</ul>
+						<ExercisePickerDialog
+							routineId={params?.routineId}
+							exercises={exercises}
+						/>
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />
-					<ExercisePickerDialog
-						routineId={params?.routineId}
-						exercises={exercises}
-					/>
 				</Form>
+
 				<div className={floatingToolbarClassName}>
 					<Button variant="destructive" {...form.reset.getButtonProps()}>
 						Reset
 					</Button>
 					<StatusButton
 						form={form.id}
+						name="intent"
+						value="save-routine"
 						type="submit"
 						disabled={isPending}
 						status={isPending ? 'pending' : 'idle'}
