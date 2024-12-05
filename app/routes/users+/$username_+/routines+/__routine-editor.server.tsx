@@ -186,6 +186,7 @@ export async function actionAddExercises({
 	// so that last(routine.circuits[0].exercises).sequence is the last sequence
 
 	const exerciseCircuitsData = exercises.map((id) => ({
+		routineId,
 		circuitId,
 		exerciseId: id,
 		sequence: nextExerciseSequence++,

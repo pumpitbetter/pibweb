@@ -24,7 +24,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 		where: { username: params.username },
 	})
 
-	const routines = await prisma.routine.findMany({
+	const routines = await prisma.routine?.findMany({
 		select: {
 			id: true,
 			name: true,
