@@ -17,7 +17,9 @@ import { Icon } from '#app/components/ui/icon.js'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { ExercisePickerDialog } from '#app/routes/users+/$username_+/routines+/exercise-picker-dialog.tsx'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { type CircuitExerciseInfo } from './$routineId'
 import { type loader } from './$routineId_.edit'
+import { CircuitCard } from './__circuit-card'
 import { type action } from './__routine-editor.server'
 
 const nameMinLength = 1
@@ -51,7 +53,8 @@ export function RoutineEditor({
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
 	const params = useParams()
-	const { routine, exercises } = loaderData
+	const routine = loaderData?.routine
+	const exercises = loaderData?.exercises
 
 	const [form, fields] = useForm({
 		id: 'routine-editor',
@@ -68,6 +71,22 @@ export function RoutineEditor({
 		},
 		shouldRevalidate: 'onBlur',
 	})
+
+	let circuit = new Map<string, CircuitExerciseInfo[]>()
+	if (loaderData?.routine?.circuits) {
+		for (let c of loaderData?.routine?.circuits) {
+			circuit.set(
+				c.id,
+				loaderData?.routine?.circuitExercises
+					?.filter((i) => i.circuitId === c.id) // filter out all exercises other then given `circuitId`
+					.sort((i) => i.sequence), // sort asc within the above results
+			)
+		}
+	}
+
+	const firstCircuitId = loaderData?.routine?.circuits?.[0]?.id || ''
+	const firstCircuitExercises = circuit.get(firstCircuitId)
+	console.log('firstCircuitExercises', firstCircuitExercises)
 
 	return (
 		<div className="absolute inset-0">
@@ -94,7 +113,7 @@ export function RoutineEditor({
 						</Icon>
 					</Link>
 					{routine ? (
-						<input type="hidden" name="id" value={routine.id} />
+						<input type="hidden" name="id" value={routine?.id} />
 					) : null}
 					<div className="flex flex-col gap-1">
 						<Field
@@ -134,16 +153,15 @@ export function RoutineEditor({
 						<h5 className="w-f whitespace-break-spaces py-4 text-h5">
 							Exercises
 						</h5>
-						<ul>
-							{routine?.circuits[0]?.exercises.map((e) => (
-								<li className="w-full p-2" key={e.exercise.id}>
-									{e.exercise.name}
-								</li>
-							))}
-						</ul>
-						<ExercisePickerDialog
-							routineId={params?.routineId}
-							exercises={exercises}
+						<CircuitCard
+							id={firstCircuitId}
+							circuitExercises={firstCircuitExercises}
+							children={
+								<ExercisePickerDialog
+									routineId={params?.routineId}
+									exercises={exercises}
+								/>
+							}
 						/>
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />

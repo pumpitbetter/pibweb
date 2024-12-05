@@ -94,6 +94,7 @@ model Routine {
   favoriteRoutines FavoriteRoutine[]
   workouts         Workout[]
   circuits         Circuit[] // one or more ordered lists of exercises and rests each potentially with changing loads
+  circuitExercises CircuitExercise[]
 
   // non-unique foreign key
   @@index([ownerId])
@@ -116,7 +117,9 @@ model CircuitExercise {
   circuitId  String
   exercise   Exercise @relation(fields: [exerciseId], references: [id])
   exerciseId String
-  sequence   Int
+  routine    Routine  @relation(fields: [routineId], references: [id])
+  routineId  String
+  sequence   Float
 
   @@index([circuitId])
 }
@@ -125,7 +128,7 @@ model Circuit {
   id        String  @id @default(cuid())
   routine   Routine @relation(fields: [routineId], references: [id])
   routineId String
-  sequence  Int
+  sequence  Float
 
   exercises CircuitExercise[]
 

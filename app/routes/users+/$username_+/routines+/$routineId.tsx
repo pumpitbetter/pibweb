@@ -1,9 +1,11 @@
 import { getFormProps, useForm } from '@conform-to/react'
 import { invariantResponse } from '@epic-web/invariant'
+import { type CircuitExercise, type Exercise } from '@prisma/client'
 import {
 	json,
 	type LoaderFunctionArgs,
 	type ActionFunctionArgs,
+	type SerializeFrom,
 } from '@remix-run/node'
 import {
 	Form,
@@ -27,7 +29,7 @@ import { actionDelete, actionStart } from './__routineId.server.tsx'
 import { type loader as routinesLoader } from './_layout.tsx'
 
 export async function loader({ params }: LoaderFunctionArgs) {
-	const routine = await prisma.routine.findUnique({
+	const routine = await prisma.routine?.findUnique({
 		where: { id: params.routineId },
 		select: {
 			id: true,
@@ -41,18 +43,21 @@ export async function loader({ params }: LoaderFunctionArgs) {
 				select: {
 					id: true,
 					sequence: true,
-					exercises: {
+				},
+				orderBy: { sequence: 'asc' },
+			},
+			circuitExercises: {
+				select: {
+					id: true,
+					circuitId: true,
+					routineId: true,
+					exercise: {
 						select: {
 							id: true,
-							sequence: true,
-							exercise: {
-								select: {
-									id: true,
-									name: true,
-								},
-							},
+							name: true,
 						},
 					},
+					sequence: true,
 				},
 			},
 		},
@@ -60,7 +65,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
 	invariantResponse(routine, 'Not found', { status: 404 })
 
-	const date = new Date(routine.updatedAt)
+	const date = new Date(routine?.updatedAt)
 	const timeAgo = formatDistanceToNow(date)
 
 	return json({
@@ -83,6 +88,10 @@ export async function action(args: ActionFunctionArgs) {
 	}
 }
 
+export type CircuitExerciseInfo = SerializeFrom<
+	Pick<CircuitExercise, 'id' | 'sequence' | 'circuitId' | 'routineId'>
+> & { exercise: SerializeFrom<Pick<Exercise, 'id' | 'name'>> }
+
 export default function RoutineRoute() {
 	const data = useLoaderData<typeof loader>()
 	const params = useParams()
@@ -94,6 +103,18 @@ export default function RoutineRoute() {
 	)
 	const canStart = isOwner
 	const displayBar = canDelete || isOwner
+
+	let circuit = new Map<string, CircuitExerciseInfo[]>()
+	for (let c of data.routine?.circuits) {
+		circuit.set(
+			c.id,
+			data.routine?.circuitExercises
+				?.filter((i) => i.circuitId === c.id) // filter out all exercises other then given `circuitId`
+				.sort((i) => i.sequence), // sort asc within the above results
+		)
+	}
+	const firstCircuitId = data.routine?.circuits?.[0]?.id || ''
+	const firstCircuitExercises = circuit.get(firstCircuitId)
 
 	return (
 		<div className="absolute inset-0 flex flex-col px-10">
@@ -108,18 +129,18 @@ export default function RoutineRoute() {
 					</Icon>
 				</Link>
 			</div>
-			<h2 className="mb-2 text-h2 lg:mb-6">{data.routine.name}</h2>
+			<h2 className="mb-2 text-h2 lg:mb-6">{data.routine?.name}</h2>
 			<div className={`${displayBar ? 'pb-24' : 'pb-12'} overflow-y-auto`}>
 				<p className="whitespace-break-spaces pb-8 text-sm md:text-lg">
 					<strong>Type: </strong>
-					{data.routine.type.name}
+					{data.routine?.type.name}
 				</p>
 				<p className="whitespace-break-spaces text-sm md:text-lg">
-					{data.routine.description}
+					{data.routine?.description}
 				</p>
-				{data.routine.videoUrl && (
+				{data.routine?.videoUrl && (
 					<iframe
-						src={data.routine.videoUrl}
+						src={data.routine?.videoUrl}
 						title="YouTube video player"
 						frameBorder="0"
 						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -130,7 +151,7 @@ export default function RoutineRoute() {
 				)}
 				<h5 className="w-f whitespace-break-spaces py-4 text-h5">Exercises</h5>
 				<ul>
-					{data.routine.circuits[0]?.exercises.map((e) => (
+					{firstCircuitExercises?.map((e) => (
 						<li className="w-full p-2" key={e.exercise.id}>
 							{e.exercise.name}
 						</li>
@@ -145,7 +166,7 @@ export default function RoutineRoute() {
 						</Icon>
 					</span>
 					<div className="grid flex-1 grid-cols-2 justify-end gap-2 min-[525px]:flex md:gap-4">
-						{canDelete ? <DeleteRoutine id={data.routine.id} /> : null}
+						{canDelete ? <DeleteRoutine id={data.routine?.id} /> : null}
 						<Button
 							asChild
 							className="min-[525px]:max-md:aspect-square min-[525px]:max-md:px-0"
@@ -156,7 +177,7 @@ export default function RoutineRoute() {
 								</Icon>
 							</Link>
 						</Button>
-						{canStart ? <StartRoutine id={data.routine.id} /> : null}
+						{canStart ? <StartRoutine id={data.routine?.id} /> : null}
 					</div>
 				</div>
 			) : null}
@@ -230,10 +251,10 @@ export const meta: MetaFunction<
 		(m) => m.id === 'routes/users+/$username_+/routine',
 	)
 	const displayName = routinesMatch?.data?.owner.name ?? params.username
-	const routineName = data?.routine.name ?? 'Routine'
+	const routineName = data?.routine?.name ?? 'Routine'
 	const routineDescriptionSummary =
 		data?.routine?.description && data.routine?.description?.length > 100
-			? data?.routine.description?.slice(0, 97) + '...'
+			? data?.routine?.description?.slice(0, 97) + '...'
 			: 'No content'
 	return [
 		{ title: `${routineName} | ${displayName}'s Notes | Epic Notes` },

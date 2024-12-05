@@ -21,24 +21,21 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 				select: {
 					id: true,
 					sequence: true,
-					exercises: {
+				},
+				orderBy: { sequence: 'asc' },
+			},
+			circuitExercises: {
+				select: {
+					id: true,
+					circuitId: true,
+					routineId: true,
+					exercise: {
 						select: {
 							id: true,
-							sequence: true,
-							exercise: {
-								select: {
-									id: true,
-									name: true,
-								},
-							},
-						},
-						orderBy: {
-							sequence: 'asc',
+							name: true,
 						},
 					},
-				},
-				orderBy: {
-					sequence: 'asc',
+					sequence: true,
 				},
 			},
 		},
