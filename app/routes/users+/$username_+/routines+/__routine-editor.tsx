@@ -6,6 +6,20 @@ import {
 	useForm,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import {
+	DndContext,
+	closestCenter,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from '@dnd-kit/core'
+import {
+	arrayMove,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { type SerializeFrom } from '@remix-run/node'
 import { Form, Link, useActionData, useParams } from '@remix-run/react'
 import { z } from 'zod'
@@ -56,6 +70,13 @@ export function RoutineEditor({
 	const routine = loaderData?.routine
 	const exercises = loaderData?.exercises
 
+	const sensors = useSensors(
+		useSensor(PointerSensor),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	)
+
 	const [form, fields] = useForm({
 		id: 'routine-editor',
 		constraint: getZodConstraint(RoutineEditorSchema),
@@ -86,7 +107,19 @@ export function RoutineEditor({
 
 	const firstCircuitId = loaderData?.routine?.circuits?.[0]?.id || ''
 	const firstCircuitExercises = circuit.get(firstCircuitId)
-	console.log('firstCircuitExercises', firstCircuitExercises)
+
+	function handleDragEnd(event: { active: any; over: any }) {
+		const { active, over } = event
+
+		if (active.id !== over.id) {
+			console.log('tom: swap and save/submit?')
+			// setItems((items) => {
+			// 	const oldIndex = items.indexOf(active.id)
+			// 	const newIndex = items.indexOf(over.id)
+			// 	return arrayMove(items, oldIndex, newIndex)
+			// })
+		}
+	}
 
 	return (
 		<div className="absolute inset-0">
@@ -153,16 +186,29 @@ export function RoutineEditor({
 						<h5 className="w-f whitespace-break-spaces py-4 text-h5">
 							Exercises
 						</h5>
-						<CircuitCard
-							id={firstCircuitId}
-							circuitExercises={firstCircuitExercises}
-							children={
-								<ExercisePickerDialog
-									routineId={params?.routineId}
-									exercises={exercises}
-								/>
-							}
-						/>
+						{firstCircuitExercises && (
+							<DndContext
+								sensors={sensors}
+								collisionDetection={closestCenter}
+								onDragEnd={handleDragEnd}
+							>
+								<SortableContext
+									items={firstCircuitExercises}
+									strategy={verticalListSortingStrategy}
+								>
+									<CircuitCard
+										id={firstCircuitId}
+										circuitExercises={firstCircuitExercises}
+										children={
+											<ExercisePickerDialog
+												routineId={params?.routineId}
+												exercises={exercises}
+											/>
+										}
+									/>
+								</SortableContext>
+							</DndContext>
+						)}
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />
 				</Form>
