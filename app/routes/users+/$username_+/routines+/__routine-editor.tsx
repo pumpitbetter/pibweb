@@ -6,8 +6,23 @@ import {
 	useForm,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import {
+	DndContext,
+	closestCenter,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+	type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+	SortableContext,
+	sortableKeyboardCoordinates,
+	verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { type SerializeFrom } from '@remix-run/node'
 import { Form, Link, useActionData, useParams } from '@remix-run/react'
+import { useState } from 'react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { floatingToolbarClassName } from '#app/components/floating-toolbar.tsx'
@@ -56,6 +71,13 @@ export function RoutineEditor({
 	const routine = loaderData?.routine
 	const exercises = loaderData?.exercises
 
+	const sensors = useSensors(
+		useSensor(PointerSensor),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	)
+
 	const [form, fields] = useForm({
 		id: 'routine-editor',
 		constraint: getZodConstraint(RoutineEditorSchema),
@@ -72,21 +94,96 @@ export function RoutineEditor({
 		shouldRevalidate: 'onBlur',
 	})
 
-	let circuit = new Map<string, CircuitExerciseInfo[]>()
-	if (loaderData?.routine?.circuits) {
-		for (let c of loaderData?.routine?.circuits) {
-			circuit.set(
-				c.id,
-				loaderData?.routine?.circuitExercises
-					?.filter((i) => i.circuitId === c.id) // filter out all exercises other then given `circuitId`
-					.sort((i) => i.sequence), // sort asc within the above results
-			)
+	const [circuits, setCircuits] = useState(initializeFromLoaderData)
+
+	function initializeFromLoaderData() {
+		let circuitsMap = new Map<string, CircuitExerciseInfo[]>()
+		if (loaderData?.routine?.circuits) {
+			for (let c of loaderData?.routine?.circuits) {
+				circuitsMap.set(
+					c.id,
+					loaderData?.routine?.circuitExercises
+						?.filter((i) => i.circuitId === c.id) // filter out all exercises other then given `circuitId`
+						.sort((a, b) => (a.sequence < b.sequence ? -1 : 0)), // sort asc within the above results
+				)
+			}
 		}
+		return circuitsMap
 	}
 
 	const firstCircuitId = loaderData?.routine?.circuits?.[0]?.id || ''
-	const firstCircuitExercises = circuit.get(firstCircuitId)
-	console.log('firstCircuitExercises', firstCircuitExercises)
+	const firstCircuitExercises = circuits?.get(firstCircuitId)
+
+	function handleDragEnd(event: DragEndEvent) {
+		const { active, over } = event
+
+		if (active.id !== over?.id && firstCircuitExercises?.length) {
+			setCircuits((c) => {
+				const activeExerciseIdx = firstCircuitExercises.findIndex(
+					(e) => e.id === active.id,
+				)
+				const activeCircuitId =
+					firstCircuitExercises[activeExerciseIdx]?.circuitId || ''
+
+				const overExerciseIdx = firstCircuitExercises.findIndex(
+					(e) => e.id === over?.id,
+				)
+
+				if (
+					firstCircuitExercises[activeExerciseIdx] &&
+					firstCircuitExercises[overExerciseIdx]
+					// both from same circuit?
+				) {
+					if (activeExerciseIdx < overExerciseIdx) {
+						// if item has been dragged down
+						if (firstCircuitExercises.length - 1 > overExerciseIdx) {
+							// dragged down *not* over the last place
+							firstCircuitExercises[activeExerciseIdx].sequence =
+								((firstCircuitExercises?.[overExerciseIdx + 1]?.sequence ?? 0) +
+									(firstCircuitExercises?.[overExerciseIdx]?.sequence ?? 0)) /
+								2
+						} else {
+							// dragged down over the last place
+							firstCircuitExercises[activeExerciseIdx].sequence =
+								(firstCircuitExercises?.[overExerciseIdx]?.sequence ?? 0) + 1
+						}
+					} else {
+						// if item has been dragged up
+						if (overExerciseIdx > 0) {
+							// dragged up *not* into first place
+							firstCircuitExercises[activeExerciseIdx].sequence =
+								((firstCircuitExercises?.[overExerciseIdx - 1]?.sequence ?? 0) +
+									(firstCircuitExercises?.[overExerciseIdx]?.sequence ?? 0)) /
+								2
+						} else if (firstCircuitExercises[0] && firstCircuitExercises[1]) {
+							// dragged up into first place
+
+							firstCircuitExercises[0].sequence =
+								firstCircuitExercises[1].sequence / 2
+							firstCircuitExercises[activeExerciseIdx].sequence = 0
+						}
+					}
+				}
+
+				// todo: submit to update the database, here??? after the state updates and rerenders?
+
+				const newCircuits = new Map(c)
+				const exercises = newCircuits?.get(activeCircuitId)
+				if (exercises) {
+					const newExercises = [...exercises].sort((a, b) =>
+						a.sequence < b.sequence ? -1 : 0,
+					)
+					newCircuits.set(
+						activeCircuitId,
+						newExercises, // sort asc within the above results
+					)
+				}
+
+				return newCircuits
+			})
+
+		}
+	}
 
 	return (
 		<div className="absolute inset-0">
@@ -153,16 +250,29 @@ export function RoutineEditor({
 						<h5 className="w-f whitespace-break-spaces py-4 text-h5">
 							Exercises
 						</h5>
-						<CircuitCard
-							id={firstCircuitId}
-							circuitExercises={firstCircuitExercises}
-							children={
-								<ExercisePickerDialog
-									routineId={params?.routineId}
-									exercises={exercises}
-								/>
-							}
-						/>
+						{firstCircuitExercises && (
+							<DndContext
+								sensors={sensors}
+								collisionDetection={closestCenter}
+								onDragEnd={handleDragEnd}
+							>
+								<SortableContext
+									items={firstCircuitExercises}
+									strategy={verticalListSortingStrategy}
+								>
+									<CircuitCard
+										id={firstCircuitId}
+										circuitExercises={firstCircuitExercises}
+										children={
+											<ExercisePickerDialog
+												routineId={params?.routineId}
+												exercises={exercises}
+											/>
+										}
+									/>
+								</SortableContext>
+							</DndContext>
+						)}
 					</div>
 					<ErrorList id={form.errorId} errors={form.errors} />
 				</Form>
